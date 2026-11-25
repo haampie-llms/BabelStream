@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - `ocl` memory capacity checks can be disabled with `OCL_DISABLE_MEMORY_CHECK` (#183)
 - `cuda` supports clang as the CUDA compiler via `CUDA_CLANG_DRIVER=ON` (#191)
 - New `vulkan` model using the compute capabilities in the Khronos Vulkan API. (#227)
+- `hip` and `thrust` with `THRUST_IMPL=ROCM` compile with CMake's HIP language when the C++ compiler is not Clang, so the C++ compiler does not have to be hipcc
 
 ### Removed
 - Remove support for ComputeCpp compiler
