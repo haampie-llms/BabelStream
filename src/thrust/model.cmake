@@ -25,6 +25,12 @@ register_flag_optional(CMAKE_CUDA_COMPILER
         "[THRUST_IMPL==CUDA] Path to the CUDA nvcc compiler"
         "")
 
+register_flag_optional(CMAKE_HIP_COMPILER
+        "[THRUST_IMPL==ROCM] Path to the HIP compiler (e.g amdclang++) for CMake's HIP language (requires CMake >= 3.21),
+         which is used if CMAKE_CXX_COMPILER is not Clang based.
+         Set the GPU architectures with CMAKE_HIP_ARCHITECTURES (e.g `gfx90a`)"
+        "")
+
 # XXX we may want to drop this eventually and use CMAKE_CUDA_ARCHITECTURES directly
 register_flag_optional(CUDA_ARCH
         "[THRUST_IMPL==CUDA] Nvidia architecture, will be passed in via `-arch=` (e.g `sm_70`) for nvcc"
@@ -82,6 +88,21 @@ macro(setup)
         endif()
         register_link_library(CCCL::CCCL)
     elseif (${THRUST_IMPL} STREQUAL "ROCM")
+        if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            if (CMAKE_VERSION VERSION_LESS "3.21.0")
+                message(FATAL_ERROR "Using the HIP language requires CMake >= 3.21")
+            endif ()
+            set(CMAKE_HIP_STANDARD ${CMAKE_CXX_STANDARD})
+            enable_language(HIP)
+            # CMake defaults to -O2 for HIP at Release, let's wipe that and use the global RELEASE_FLAG appended later
+            wipe_gcc_style_optimisation_flags(CMAKE_HIP_FLAGS_${BUILD_TYPE})
+            # roc::rocthrust links hip::device, which adds HIP compiler flags to all C++ sources
+            set_source_files_properties(${IMPL_SOURCES} src/main.cpp PROPERTIES LANGUAGE HIP)
+        else ()
+            # the C++ compiler is a HIP compiler, treat *.cu files as CXX otherwise CMake doesn't compile them
+            set_source_files_properties(${IMPL_SOURCES} PROPERTIES LANGUAGE CXX)
+        endif ()
+
         if (SDK_DIR)
             find_package(rocprim REQUIRED CONFIG PATHS ${SDK_DIR}/rocprim)
             find_package(rocthrust REQUIRED CONFIG PATHS ${SDK_DIR}/rocthrust)
@@ -89,9 +110,6 @@ macro(setup)
             find_package(rocprim REQUIRED CONFIG)
             find_package(rocthrust REQUIRED CONFIG)
         endif ()
-
-        # for HIP we treat *.cu files as CXX otherwise CMake doesn't compile them
-        set_source_files_properties(${IMPL_SOURCES} PROPERTIES LANGUAGE CXX)
 
         register_link_library(roc::rocthrust)
     else ()
